@@ -142,7 +142,8 @@ end
 
 function lars{T<:BlasReal}(X::Matrix{T}, y::Vector{T}; method::Symbol=:lasso, intercept::Bool=true,
                            standardize::Bool=true, maxiter::Int=typemax(Int),
-                           lambda_min::Float64=0.0, use_gram::Bool=true, verbose::Bool=false)
+                           lambda_min::Float64=0.0, use_gram::Bool=(size(X, 1) > size(X, 2)),
+                           verbose::Bool=false)
     # Center and standardize
     if intercept
         μX = mean(X, 1)
@@ -191,7 +192,6 @@ function lars{T<:BlasReal}(X::Matrix{T}, y::Vector{T}; method::Symbol=:lasso, in
     eq_dir = similar(y)
     corr_eq_dir_buffer = similar(X, nfeatures)
 
-    use_gram &= size(X, 1) > size(X, 2)
     Gram = use_gram ? X'X : similar(X, 0, 0)
     Cov = X'y
 
