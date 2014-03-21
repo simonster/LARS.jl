@@ -158,9 +158,9 @@ function lars{T<:BlasReal}(X::Matrix{T}, y::Vector{T}; method::Symbol=:lasso, in
     if standardize
         Xnorm = [begin
             v = view(X, :, i)
-            sqrt(dot(v, v))
+            1/sqrt(dot(v, v))
         end for i = 1:size(X, 2)]
-        scale!(X, 1./Xnorm)
+        scale!(X, Xnorm)
     end
 
     nfeatures = size(X, 2)
