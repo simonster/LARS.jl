@@ -128,11 +128,12 @@ function swaprows!(X::DenseMatrix, c1::Int, c2::Int)
     X
 end
 
-function choldelete!(R::AbstractMatrix, row::Int)
-    p = (row-1)*size(R, 1)+1
+function choldelete!{T}(R::StridedView{T}, row::Int)
+    inc = stride(R, 2)*sizeof(T)
+    p = (row-1)*inc
     for i = row:size(R, 2)-1
-        copy!(R, p, R, p+size(R, 1), i+1)
-        p += size(R, 1)
+        BLAS.blascopy!(i+1, pointer(R)+p+inc, 1, pointer(R)+p, 1)
+        p += inc
     end
     for i = row:size(R, 2)-1
         A_mul_B!(givens(R, i, i+1, i), R)
