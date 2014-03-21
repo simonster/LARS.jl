@@ -58,6 +58,22 @@ because the covTest package does not take into account the intercept in the
 least squares model fit when computing the error variance, which I believe is
 incorrect. I have emailed the authors but have yet to receive a response.
 
+## Benchmarks
+
+![scikit-learn Performance Comparison](/benchmark/performance.png)
+
+LARS.jl is substantially faster than scikit-learn for cases where the number
+of samples exceeds the number of features, particularly when using a Gram
+matrix. For cases where the number of features greatly exceeds the number of
+samples, scikit-learn is still occasionally faster. I am still tracking down
+the cause.
+
+## See also
+
+[GLMNet](https://github.com/simonster/GLMNet.jl) fits the lasso solution path
+using coordinate descent and supports fitting L1-regularized generalized
+linear models.
+
 ## Credits
 
 This package is written and maintained by Simon Kornblith <simon@simonster.com>.
