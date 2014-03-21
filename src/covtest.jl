@@ -46,19 +46,17 @@ function Base.show{T}(io::IO, path::CovarianceTestPath{T})
     end
 end
 
-function interceptdot{T}(y::Vector{T}, yhat::Vector{T}, intercept::T)
-    r = zero(T)
-    for i = 1:length(y)
-        r += y[i]*(yhat[i]+intercept)
-    end
-    r
-end
-
 function covtest{T<:BlasReal}(path::LARSPath, X::Matrix{T}, y::Vector{T}; errorvar::Float64=NaN)
     path.method == :lasso || error("covtest requires a lasso path")
     length(path.steps) > 1 || error("only one lasso step in path")
 
     has_intercept = isdefined(path, :intercept)
+    if has_intercept
+        μX = mean(X, 1)
+        X = X .- μX
+        μy = mean(y)
+        y = y .- μy
+    end
     coefs = path.coefs
     lambdas = path.lambdas
     steps = path.steps
@@ -72,46 +70,42 @@ function covtest{T<:BlasReal}(path::LARSPath, X::Matrix{T}, y::Vector{T}; errorv
     predictor = [path.steps[1].added]
     sizehint(predictor, length(steps))
 
-    # For first knot, we are comparing against an intercept-only fit
-    ip1 = has_intercept ? sum(y)*path.intercept[1] : sum(y)
-    
+    # For first knot
     A_mul_B!(yhat, X, view(coefs, :, 2))
-    ip2 = has_intercept ? interceptdot(y, yhat, path.intercept[2]) : dot(y, yhat)
+    drop_in_cov = [dot(y, yhat)]
+    sizehint(drop_in_cov, length(steps)+1)
 
-    drop_in_cov = [ip2 - ip1]
-    sizehint(drop_in_cov, length(steps))
+    nactive = 1
 
     # Subsequent knots
     k = 2
-    for i = 2:length(steps)-1
+    for i = 2:length(steps)
         if steps[i].added == 0
+            nactive -= length(steps[i].dropped)
             k += 2
             continue
         end
         push!(predictor, steps[i].added)
 
-        last_ldiff = lambdas[k]-lambdas[k-1]
-        ldiff = lambdas[k+1]-lambdas[k]
-
         # Fit with old active set
+        last_ldiff = lambdas[k]-lambdas[k-1]
+        ldiff = ifelse(k == length(lambdas), zero(last_ldiff), lambdas[k+1])-lambdas[k]
+
         s = ldiff / last_ldiff
         for i = 1:size(coefs, 1)
             beta[i] = coefs[i, k] + (coefs[i, k] - coefs[i, k-1]) * s
         end
         A_mul_B!(yhat, X, beta)
-        ip1 = if has_intercept
-            local intercept = path.intercept[k] + (path.intercept[k] - path.intercept[k-1])*s
-            interceptdot(y, yhat, intercept)
-        else
-            dot(y, yhat)
-        end
+
+        ip1 = dot(y, yhat)
 
         # Fit with new active set
-        A_mul_B!(yhat, X, view(coefs, :, k+1))
-        ip2 = has_intercept ? interceptdot(y, yhat, path.intercept[k]) : dot(y, yhat)
+        A_mul_B!(yhat, X, view(coefs, :, min(k+1, size(coefs, 2))))
+        ip2 = dot(y, yhat)
 
         push!(drop_in_cov, ip2 - ip1)
         k += 1
+        nactive += 1
     end
 
     estimate_errorvar = isnan(errorvar)
@@ -119,33 +113,12 @@ function covtest{T<:BlasReal}(path::LARSPath, X::Matrix{T}, y::Vector{T}; errorv
         size(X, 2) < size(X, 1) || error("p >= n; error variance must be specified")
 
         # XXX what to do if X is not full rank?
-        df = size(X, 1) - (size(coefs, 2) + has_intercept)
-        if lambdas[end] < eps()
-            # Last lambda is least squares fit
-            A_mul_B!(yhat, X, view(coefs, :, size(coefs, 2)))
-            errorvar = zero(T)
-            if has_intercept
-                intercept = path.intercept[end]
-            else
-                intercept = zero(T)
-            end
-            for i = 1:length(y)
-                @inbounds errorvar += abs2(y[i] - yhat[i] - intercept)
-            end
-            errorvar /= df
-        else
-            rank = size(coefs, 2)
-            if has_intercept
-                μX = mean(X, 1)
-                Xcopy = X .- μX
-                μy = mean(y)
-                ycopy = y .- μy
-            else
-                Xcopy = copy(X)
-                ycopy = copy(y)
-            end
-            errorvar = LAPACK.gels!('N', Xcopy, ycopy)[3][1]/df
+        df = size(X, 1) - (size(X, 2) + has_intercept)
+        if !has_intercept
+            X = copy(X)
+            y = copy(y)
         end
+        errorvar = LAPACK.gels!('N', X, y)[3][1]/df
         scale!(drop_in_cov, 1/errorvar)
         p = ccdf(FDist(2, df), drop_in_cov)
     else
