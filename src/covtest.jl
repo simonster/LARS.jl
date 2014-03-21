@@ -78,18 +78,16 @@ function covtest{T<:BlasReal}(path::LARSPath, X::Matrix{T}, y::Vector{T}; errorv
     nactive = 1
 
     # Subsequent knots
-    k = 2
-    for i = 2:length(steps)
-        if steps[i].added == 0
-            nactive -= length(steps[i].dropped)
-            k += 2
+    for k = 2:length(steps)
+        if steps[k].added == 0
+            nactive -= length(steps[k].dropped)
             continue
         end
-        push!(predictor, steps[i].added)
+        push!(predictor, steps[k].added)
 
         # Fit with old active set
         last_ldiff = lambdas[k]-lambdas[k-1]
-        ldiff = ifelse(k == length(lambdas), zero(last_ldiff), lambdas[k+1])-lambdas[k]
+        ldiff = lambdas[k+1]-lambdas[k]
 
         s = ldiff / last_ldiff
         for i = 1:size(coefs, 1)
@@ -104,7 +102,6 @@ function covtest{T<:BlasReal}(path::LARSPath, X::Matrix{T}, y::Vector{T}; errorv
         ip2 = dot(y, yhat)
 
         push!(drop_in_cov, ip2 - ip1)
-        k += 1
         nactive += 1
     end
 
