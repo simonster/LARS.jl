@@ -92,24 +92,22 @@ immutable LARSPath{T}
 end
 
 function Base.show{T}(io::IO, path::LARSPath{T})
-    println(io, "LARSPath{$T} with $(length(path.coefs)) coefficients:")
+    println(io, "LARSPath{$T} with $(size(path.coefs, 1)) coefficients:")
     spacing = repeat(" ", 2)
     steplen = max(iceil(log10(length(path.steps))), 4)
     lambdalen = maximum([length(repr(lambda)) for lambda in path.lambdas])
     print(io, ' ', rpad("Step", steplen), spacing, rpad("λ", lambdalen), spacing, "Action")
 
-    lambdaind = 1
+    dropped = false
     for i = 1:length(path.steps)
         print(io, '\n', ' ', lpad(repr(i), steplen), spacing,
-              rpad(repr(path.lambdas[lambdaind]), lambdalen), spacing)
+              rpad(repr(path.lambdas[i]), lambdalen), spacing)
 
         step = path.steps[i]
         if step.added == 0
             print(io, "- ", join(step.dropped, ","))
-            lambdaind += 2
         else
             print(io, "+ ", step.added)
-            lambdaind += 1
         end
     end
 end
@@ -170,7 +168,7 @@ function lars{T<:BlasReal}(X::Matrix{T}, y::Vector{T}; method::Symbol=:lasso, in
     coef = zeros(T, nfeatures)
     prev_coef = zeros(T, nfeatures)
     coefs = zeros(T, nfeatures, maxfeatures + 1)
-    lambdas = similar(X, maxfeatures + 1)
+    lambdas = zeros(T, maxfeatures + 1)
     lambda = oftype(T, Inf)
 
     niter, nactive = 1, 0
