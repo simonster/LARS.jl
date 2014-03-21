@@ -128,7 +128,7 @@ function swaprows!(X::DenseMatrix, c1::Int, c2::Int)
     X
 end
 
-function choldelete!(R::Matrix, row::Int)
+function choldelete!(R::AbstractMatrix, row::Int)
     p = (row-1)*size(R, 1)+1
     for i = row:size(R, 2)-1
         copy!(R, p, R, p+size(R, 1), i+1)
@@ -242,7 +242,6 @@ function lars{T<:BlasReal}(X::Matrix{T}, y::Vector{T}; method::Symbol=:lasso, in
             #            ( 0   z )    and z = ||x_j||                #
             #                                                        #
             ##########################################################
-            push!(signactive, sign(C_))
             m, n = nactive+1, C_idx+nactive
 
             removed_Cov = Cov[C_idx]
@@ -284,6 +283,7 @@ function lars{T<:BlasReal}(X::Matrix{T}, y::Vector{T}; method::Symbol=:lasso, in
             end
 
             nactive += 1
+            push!(signactive, sign(C_))
             push!(active, indices[nactive])
             push!(steps, LARSStep(indices[nactive]))
 
@@ -297,7 +297,7 @@ function lars{T<:BlasReal}(X::Matrix{T}, y::Vector{T}; method::Symbol=:lasso, in
             # bringing in too much numerical error that is greater than
             # than the remaining correlation with the
             # regressors. Time to bail out
-            warn(@sprintf "Early stopping the lars path, as the residues are small and the current value of alpha is no longer well controlled. %i iterations, λ=%.3e, previous λ=%.3e, with an active set of %i regressors." niter lambda prev_lambda nactive)
+            warn(@sprintf "Early stopping the lars path, as the residues are small and the current value of lambda is no longer well controlled. %i iterations, λ=%.3e, previous λ=%.3e, with an active set of %i regressors." niter lambda prev_lambda nactive)
             break
         end
 
@@ -377,10 +377,10 @@ function lars{T<:BlasReal}(X::Matrix{T}, y::Vector{T}; method::Symbol=:lasso, in
 
         niter += 1
 
-        if niter > size(coefs, 1)
+        if niter > size(coefs, 2)
             # resize the coefs and lambdas array
             addsteps = 2 * max(1, (maxfeatures - nactive))
-            coefs_new = zeros(size(coefs, 1), niter+addsteps)
+            coefs_new = zeros(T, size(coefs, 1), niter+addsteps)
             coefs_new[:, 1:size(coefs, 2)] = coefs
             coefs = coefs_new 
             resize!(lambdas, niter+addsteps)
@@ -401,8 +401,8 @@ function lars{T<:BlasReal}(X::Matrix{T}, y::Vector{T}; method::Symbol=:lasso, in
         if drop && method == :lasso
             # handle the case when idx is not length of 1
             dropidx = Int[]
-            for i in idx
-                choldelete!(R, i)
+            for i = sort(idx, rev=true)
+                choldelete!(activeR, i)
                 push!(dropidx, splice!(active, i))
                 splice!(signactive, i)
             end
