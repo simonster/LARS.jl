@@ -120,16 +120,32 @@ function covtest{T<:BlasReal}(path::LARSPath, X::Matrix{T}, y::Vector{T}; errorv
 
         # XXX what to do if X is not full rank?
         df = size(X, 1) - (size(coefs, 2) + has_intercept)
-        if has_intercept
-            Xcopy = Array(T, size(X, 1), size(X, 2)+1)
-            Xcopy[:, 1] = one(T)
-            Xcopy[:, 2:end] = X
+        if lambdas[end] < eps()
+            # Last lambda is least squares fit
+            A_mul_B!(yhat, X, view(coefs, :, size(coefs, 2)))
+            errorvar = zero(T)
+            if has_intercept
+                intercept = path.intercept[end]
+            else
+                intercept = zero(T)
+            end
+            for i = 1:length(y)
+                @inbounds errorvar += abs2(y[i] - yhat[i] - intercept)
+            end
+            errorvar /= df
         else
-            Xcopy = copy(X)
+            rank = size(coefs, 2)
+            if has_intercept
+                μX = mean(X, 1)
+                Xcopy = X .- μX
+                μy = mean(y)
+                ycopy = y .- μy
+            else
+                Xcopy = copy(X)
+                ycopy = copy(y)
+            end
+            errorvar = LAPACK.gels!('N', Xcopy, ycopy)[3][1]/df
         end
-        ycopy = copy(y)
-        errorvar = LAPACK.gels!('N', Xcopy, ycopy)[3][1]/df
-        
         scale!(drop_in_cov, 1/errorvar)
         p = ccdf(FDist(2, df), drop_in_cov)
     else
