@@ -194,7 +194,7 @@ function lars{T<:BlasReal}(X::Matrix{T}, y::Vector{T}; method::Symbol=:lasso, in
     Gram = use_gram ? X'X : similar(X, 0, 0)
     Cov = X'y
 
-    while niter <= maxiter && nactive < nfeatures
+    while true
         if isempty(Cov)
             C_idx = 0
             C_ = 0.0
@@ -358,7 +358,6 @@ function lars{T<:BlasReal}(X::Matrix{T}, y::Vector{T}; method::Symbol=:lasso, in
             end
         end
         if z_pos < gamma_
-            idx = Int[]
             for i = length(z):-1:1
                 if z[i] == z_pos
                     push!(idx, i)
@@ -391,61 +390,67 @@ function lars{T<:BlasReal}(X::Matrix{T}, y::Vector{T}; method::Symbol=:lasso, in
         end
         coefs[:, niter] = coef
 
+        niter <= maxiter || break
+        nactive - ifelse(method == :lasso, length(idx)+1, 0) < nfeatures || break
+
         # update correlations
         for i = 1:length(Cov)
             Cov[i] -= gamma_ * corr_eq_dir[i]
         end
 
         # See if any coefficient has changed sign
-        if drop && method == :lasso
-            # handle the case when idx is not length of 1
-            dropidx = Int[]
-            for i = sort(idx, rev=true)
-                choldelete!(activeR, i)
-                push!(dropidx, splice!(active, i))
-                splice!(signactive, i)
-            end
-            nactive -= length(idx)
-            dropidx = tuple(dropidx...)
-            push!(steps, LARSStep(dropidx))
+        if drop
+            if method == :lasso
+                # handle the case when idx is not length of 1
+                dropidx = Int[]
+                for i = sort(idx, rev=true)
+                    choldelete!(activeR, i)
+                    push!(dropidx, splice!(active, i))
+                    splice!(signactive, i)
+                end
+                nactive -= length(idx)
+                dropidx = tuple(dropidx...)
+                push!(steps, LARSStep(dropidx))
 
-            # propagate dropped variable
-            if !use_gram
-                for ii in idx
-                    for i in ii:nactive
-                        indices[i], indices[i + 1] = indices[i + 1], indices[i]
-                        swapcols!(X, i, i+1)
+                # propagate dropped variable
+                if !use_gram
+                    for ii in idx
+                        for i in ii:nactive
+                            indices[i], indices[i + 1] = indices[i + 1], indices[i]
+                            swapcols!(X, i, i+1)
+                        end
                     end
-                end
 
-                active_coef = view(least_squares_buffer, 1:nactive)
-                for i = 1:nactive
-                    active_coef[i] = coef[active[i]]
-                end
-                residual = A_mul_B!(eq_dir, view(X, :, 1:nactive), active_coef)
-                broadcast!(-, residual, y, residual)
-                prepend!(Cov, view(X, :, nactive+(1:length(idx)))'residual)
-            else
-                for ii in idx
-                    for i in ii:nactive
-                        indices[i], indices[i + 1] = indices[i + 1], indices[i]
-                        swaprows!(Gram, i, i+1)
-                        swapcols!(Gram, i, i+1)
+                    active_coef = view(least_squares_buffer, 1:nactive)
+                    for i = 1:nactive
+                        active_coef[i] = coef[active[i]]
                     end
+                    residual = A_mul_B!(eq_dir, view(X, :, 1:nactive), active_coef)
+                    broadcast!(-, residual, y, residual)
+                    prepend!(Cov, view(X, :, nactive+(1:length(idx)))'residual)
+                else
+                    for ii in idx
+                        for i in ii:nactive
+                            indices[i], indices[i + 1] = indices[i + 1], indices[i]
+                            swaprows!(Gram, i, i+1)
+                            swapcols!(Gram, i, i+1)
+                        end
+                    end
+
+                    residual = eq_dir
+                    fill!(residual, zero(T))
+                    for i in active
+                        BLAS.axpy!(coef[i], view(X, :, i), residual)
+                    end
+                    broadcast!(-, residual, y, residual)
+                    prepend!(Cov, [dot(view(X, :, i), residual) for i in dropidx])
                 end
 
-                residual = eq_dir
-                fill!(residual, zero(T))
-                for i in active
-                    BLAS.axpy!(coef[i], view(X, :, i), residual)
+                if verbose
+                   @printf "%s\t\t%s\t\t%s\t\t%s\t\t%s\n" niter "" repr(dropidx) nactive abs(Cov[1])
                 end
-                broadcast!(-, residual, y, residual)
-                prepend!(Cov, [dot(view(X, :, i), residual) for i in dropidx])
             end
-
-            if verbose
-               @printf "%s\t\t%s\t\t%s\t\t%s\t\t%s\n" niter "" repr(dropidx) nactive abs(Cov[1])
-            end
+            empty!(idx)
         end
     end
 
