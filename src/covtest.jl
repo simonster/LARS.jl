@@ -57,6 +57,7 @@ function covtest{T<:BlasReal}(path::LARSPath, X::Matrix{T}, y::Vector{T}; errorv
         μy = mean(y)
         y = y .- μy
     end
+    adj = 1 + path.lambda2
     coefs = path.coefs
     lambdas = path.lambdas
     steps = path.steps
@@ -78,7 +79,7 @@ function covtest{T<:BlasReal}(path::LARSPath, X::Matrix{T}, y::Vector{T}; errorv
     nactive = 1
 
     # Subsequent knots
-    for k = 2:length(steps)
+    for k = 2:min(length(steps), length(lambdas)-1)
         if steps[k].added == 0
             nactive -= length(steps[k].dropped)
             continue
@@ -101,7 +102,7 @@ function covtest{T<:BlasReal}(path::LARSPath, X::Matrix{T}, y::Vector{T}; errorv
         A_mul_B!(yhat, X, view(coefs, :, min(k+1, size(coefs, 2))))
         ip2 = dot(y, yhat)
 
-        push!(drop_in_cov, ip2 - ip1)
+        push!(drop_in_cov, adj * (ip2 - ip1))
         nactive += 1
     end
 

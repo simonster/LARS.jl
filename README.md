@@ -18,8 +18,8 @@ which provides the significance of each variable addition along the lasso path.
 LARS solution paths are provided by the `lars` function:
 
 ```julia
-lars(X, y; method=:lasso, intercept=true, standardize=true, use_gram=true,
-     maxiter=typemax(Int), lambda_min=0.0, verbose=false)
+lars(X, y; method=:lasso, intercept=true, standardize=true, lambda2=0.0,
+     use_gram=true, maxiter=typemax(Int), lambda_min=0.0, verbose=false)
 ```
 
 `X` is the design matrix and `y` is the dependent variable. The optional parameters are:
@@ -32,6 +32,10 @@ always unpenalized.
 `standardize` - whether to standardize the predictor matrix. In contrast to
 linear regression, this affects the algorithm's results. The returned
 coefficients are always unstandardized.
+
+`lambda2` - the elastic net ridge penalty. Zero for pure lasso. Note that the
+returned coefficients are the "naive" elastic net coefficients. They can be
+adjusted as recommended by Zhou and Hastie (2005) by scaling by `1 + lambda2`.
 
 `use_gram` - whether to use a precomputed Gram matrix in computation.
 

@@ -31,6 +31,14 @@ drop_in_cov = [57079.3544,148636.4184,16309.9614,17602.5131,14269.1173,457.8277,
 t = covtest(c, X, y, errorvar=1.0)
 @test_approx_eq_eps t.drop_in_cov[1:end-1] drop_in_cov 1e-4
 
+# With penalty
+c1 = lars(X, y, lambda2=0.02)
+c2 = lars([X .- mean(X, 1); sqrt(0.02)*eye(size(X, 2))], [y .- mean(y); zeros(size(X, 2))], standardize=false, intercept=false)
+@test_approx_eq c1.coefs' c2.coefs'
+c1 = lars(X, y, lambda2=0.02, use_gram=false)
+c2 = lars([X .- mean(X, 1); sqrt(0.02)*eye(size(X, 2))], [y .- mean(y); zeros(size(X, 2))], standardize=false, intercept=false, use_gram=false)
+@test_approx_eq c1.coefs' c2.coefs'
+
 lambdas = [949.4352603840745,889.315990734972,452.9009689082005,316.0740526984122,130.13085130152092,88.78242981548489,68.9652212024215,19.981254678104257,5.477472946045879,5.089178805603155,0.0]
 coefs = [
  0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 -10.012197817492368
