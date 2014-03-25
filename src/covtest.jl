@@ -109,13 +109,18 @@ function covtest{T<:BlasReal}(path::LARSPath, X::Matrix{T}, y::Vector{T}; errorv
     if estimate_errorvar
         size(X, 2) < size(X, 1) || error("p >= n; error variance must be specified")
 
-        # XXX what to do if X is not full rank?
-        df = size(X, 1) - (size(X, 2) + has_intercept)
-        if !has_intercept
-            X = copy(X)
-            y = copy(y)
+        # gelsy! here instead of gels! because X may not be full rank
+        beta, rank = LAPACK.gelsy!(copy(X), copy(y))
+        A_mul_B!(yhat, X, beta)
+
+        errorvar = 0.0
+        for i = 1:length(yhat)
+            errorvar += abs2(y[i] - yhat[i])
         end
-        errorvar = LAPACK.gels!('N', X, y)[3][1]/df
+
+        df = size(X, 1) - (rank + has_intercept)
+        errorvar /= df
+
         scale!(drop_in_cov, 1/errorvar)
         p = ccdf(FDist(2, df), drop_in_cov)
     else
