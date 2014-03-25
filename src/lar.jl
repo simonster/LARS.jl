@@ -168,7 +168,7 @@ function lars{T<:BlasReal}(X::Matrix{T}, y::Vector{T}; method::Symbol=:lasso,
         X = X .- μX
         μy = mean(y)
         y = y .- μy
-    elseif !use_gram
+    elseif !use_gram || standardize
         X = copy(X)
     end
 
