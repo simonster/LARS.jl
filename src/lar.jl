@@ -407,8 +407,9 @@ function lars{T<:BlasReal}(X::Matrix{T}, y::Vector{T}; method::Symbol=:lasso,
             addsteps = 2 * max(1, (maxfeatures - nactive))
             coefs_new = zeros(T, size(coefs, 1), niter+addsteps)
             coefs_new[:, 1:size(coefs, 2)] = coefs
-            coefs = coefs_new 
+            coefs = coefs_new
             resize!(lambdas, niter+addsteps)
+            lambdas[niter:end] = 0
         end
         copy!(prev_coef, coef)
         fill!(coef, zero(eltype(coef)))
