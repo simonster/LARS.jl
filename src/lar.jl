@@ -184,7 +184,7 @@ function lars{T<:BlasReal}(X::Matrix{T}, y::Vector{T}; method::Symbol=:lasso,
     prev_coef = zeros(T, nfeatures)
     coefs = zeros(T, nfeatures, maxfeatures + 1)
     lambdas = zeros(T, maxfeatures + 1)
-    lambda = oftype(T, Inf)
+    lambda = convert(T, Inf)
 
     x1 = 1 / (1 + lambda2)
     x2 = 1 / sqrt(1 + lambda2)
