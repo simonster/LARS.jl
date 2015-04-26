@@ -1,21 +1,7 @@
 # The covariance test for the lasso
 # 
 # Copyright 2014 Simon Kornblith <simon@simonster.com> and others
-#
-# This program and the accompanying materials are made available under the
-# terms of the GNU Lesser General Public License (LGPL) version 3.0 which
-# accompanies this distribution, and is available at
-# http://www.gnu.org/licenses/lgpl-3.0.html
-#
-# This library is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-# Lesser General Public License for more details.
-#
-# See also:
-# Lockhart, R., Taylor, J., Tibshirani, R. J., & Tibshirani, R. (2013). A
-# significance test for the lasso. arXiv:1301.7161 [math, Stat]. Retrieved
-# from http://arxiv.org/abs/1301.7161
+
 export covtest
 
 immutable CovarianceTestPath{T}
