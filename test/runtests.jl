@@ -2,7 +2,7 @@ using LARS
 using Base.Test  
 
 # Diabetes data set from Efron, Hastie, Johnstone, and Tibshirani (2004)
-diabeetus = readcsv(joinpath(dirname(@__FILE__), "diabeetus.csv"), has_header=true)[1]
+diabeetus = readcsv(joinpath(dirname(@__FILE__), "diabeetus.csv"), header=true)[1]
 y = diabeetus[:, 2]
 X = diabeetus[:, 3:end]
 

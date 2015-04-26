@@ -60,10 +60,10 @@ export lars
 
 immutable LARSStep
     added::Int
-    dropped::(Int...)
+    dropped::@compat Tuple{Vararg{Int}}
 
     LARSStep(x::Int) = new(x)
-    LARSStep(x::(Int...)) = new(0, x)
+    LARSStep(x::@compat Tuple{Vararg{Int}}) = new(0, x)
 end
 
 immutable LARSPath{T}
@@ -134,7 +134,7 @@ function swaprows!(X::DenseMatrix, c1::Int, c2::Int)
     X
 end
 
-function choldelete!{T}(R::StridedView{T}, row::Int)
+@eval function choldelete!{T}(R::StridedView{T}, row::Int)
     inc = stride(R, 2)*sizeof(T)
     p = (row-1)*inc
     for i = row:size(R, 2)-1
@@ -142,7 +142,7 @@ function choldelete!{T}(R::StridedView{T}, row::Int)
         p += inc
     end
     for i = row:size(R, 2)-1
-        A_mul_B!(givens(R, i, i+1, i), R)
+        A_mul_B!($(VERSION >= v"0.4.0-dev+2272" ? :(givens(R, i, i+1, i)[1]) : :(givens(R, i, i+1, i))), R)
     end
     return R
 end
@@ -191,12 +191,12 @@ function lars{T<:BlasReal}(X::Matrix{T}, y::Vector{T}; method::Symbol=:lasso,
 
     niter, nactive = 1, 0
     # We swap columns of X as the algorithm progresses
-    active, indices = Int[], [1:nfeatures]
+    active, indices = Int[], [1:nfeatures;]
     steps = LARSStep[]
 
     # Holds the sign of covariance of active features
     signactive = Int8[]
-    sizehint(signactive, maxfeatures)
+    sizehint!(signactive, maxfeatures)
 
     # Indices of dropped features in the active set
     idx = Int[]

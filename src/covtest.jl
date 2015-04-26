@@ -16,7 +16,6 @@
 # Lockhart, R., Taylor, J., Tibshirani, R. J., & Tibshirani, R. (2013). A
 # significance test for the lasso. arXiv:1301.7161 [math, Stat]. Retrieved
 # from http://arxiv.org/abs/1301.7161
-
 export covtest
 
 immutable CovarianceTestPath{T}
@@ -69,12 +68,12 @@ function covtest{T<:BlasReal}(path::LARSPath, X::Matrix{T}, y::Vector{T}; errorv
     intercept_dir = zero(T)
 
     predictor = [path.steps[1].added]
-    sizehint(predictor, length(steps))
+    sizehint!(predictor, length(steps))
 
     # For first knot
     A_mul_B!(yhat, X, view(coefs, :, 2))
     drop_in_cov = [dot(y, yhat)]
-    sizehint(drop_in_cov, length(steps)+1)
+    sizehint!(drop_in_cov, length(steps)+1)
 
     nactive = 1
 

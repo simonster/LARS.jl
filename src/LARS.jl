@@ -1,6 +1,6 @@
 module LARS
 
-using ArrayViews, Distributions
+using ArrayViews, Distributions, Compat
 
 include("lar.jl")
 include("covtest.jl")
