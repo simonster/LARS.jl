@@ -1,6 +1,8 @@
 # Least angle regression
 
-[![Build Status](https://travis-ci.org/simonster/LARS.jl.png)](https://travis-ci.org/simonster/LARS.jl)
+[![Build Status](https://travis-ci.org/simonster/LARS.jl.svg?branch=master)](https://travis-ci.org/simonster/LARS.jl)
+[![Coverage Status](https://coveralls.io/repos/simonster/LARS.jl/badge.svg?branch=master)](https://coveralls.io/r/simonster/LARS.jl?branch=master)
+
 
 ## Introduction
 
