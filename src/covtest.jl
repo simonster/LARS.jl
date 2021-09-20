@@ -1,10 +1,10 @@
 # The covariance test for the lasso
-# 
+#
 # Copyright 2014 Simon Kornblith <simon@simonster.com> and others
 
 export covtest
 
-immutable CovarianceTestPath{T}
+struct CovarianceTestPath{T}
     predictor::Vector{Int}
     drop_in_cov::Vector{T}
     p::Vector{T}
@@ -12,7 +12,7 @@ immutable CovarianceTestPath{T}
     estimated_errorvar::Bool
 end
 
-function Base.show{T}(io::IO, path::CovarianceTestPath{T})
+function Base.show(io::IO, path::CovarianceTestPath{T}) where {T}
     println(io, "CovarianceTestPath{$T}:")
     println(io, " Error variance: $(path.errorvar) ",
             (path.estimated_errorvar ? "(estimated)" : "(given)"))
@@ -31,16 +31,16 @@ function Base.show{T}(io::IO, path::CovarianceTestPath{T})
     end
 end
 
-function covtest{T<:BlasReal}(path::LARSPath, X::Matrix{T}, y::Vector{T}; errorvar::Float64=NaN)
+function covtest(path::LARSPath, X::Matrix{T}, y::Vector{T}; errorvar::Float64=NaN) where {T<:BlasReal}
     path.method == :lasso || error("covtest requires a lasso path")
     length(path.steps) > 1 || error("only one lasso step in path")
 
     has_intercept = isdefined(path, :intercept)
     if has_intercept
-        μX = mean(X, 1)
-        X = X .- μX
+        μX = mean(X, dims=1)
+        X .= X .- μX
         μy = mean(y)
-        y = y .- μy
+        y .= y .- μy
     end
     adj = 1 + path.lambda2
     coefs = path.coefs
@@ -57,7 +57,7 @@ function covtest{T<:BlasReal}(path::LARSPath, X::Matrix{T}, y::Vector{T}; errorv
     sizehint!(predictor, length(steps))
 
     # For first knot
-    A_mul_B!(yhat, X, view(coefs, :, 2))
+    mul!(yhat, X, view(coefs, :, 2))
     drop_in_cov = [dot(y, yhat)]
     sizehint!(drop_in_cov, length(steps)+1)
 
@@ -79,12 +79,12 @@ function covtest{T<:BlasReal}(path::LARSPath, X::Matrix{T}, y::Vector{T}; errorv
         for i = 1:size(coefs, 1)
             beta[i] = coefs[i, k] + (coefs[i, k] - coefs[i, k-1]) * s
         end
-        A_mul_B!(yhat, X, beta)
+        mul!(yhat, X, beta)
 
         ip1 = dot(y, yhat)
 
         # Fit with new active set
-        A_mul_B!(yhat, X, view(coefs, :, min(k+1, size(coefs, 2))))
+        mul!(yhat, X, view(coefs, :, min(k+1, size(coefs, 2))))
         ip2 = dot(y, yhat)
 
         push!(drop_in_cov, adj * (ip2 - ip1))
@@ -97,7 +97,7 @@ function covtest{T<:BlasReal}(path::LARSPath, X::Matrix{T}, y::Vector{T}; errorv
 
         # gelsy! here instead of gels! because X may not be full rank
         beta, rank = LAPACK.gelsy!(copy(X), copy(y))
-        A_mul_B!(yhat, X, beta)
+        mul!(yhat, X, beta)
 
         errorvar = 0.0
         for i = 1:length(yhat)
@@ -107,10 +107,10 @@ function covtest{T<:BlasReal}(path::LARSPath, X::Matrix{T}, y::Vector{T}; errorv
         df = size(X, 1) - (rank + has_intercept)
         errorvar /= df
 
-        scale!(drop_in_cov, 1/errorvar)
+        drop_in_cov .*= 1/errorvar
         p = ccdf(FDist(2, df), drop_in_cov)
     else
-        scale!(drop_in_cov, 1/errorvar)
+        drop_in_cov .*= 1/errorvar
         p = ccdf(Exponential(1), drop_in_cov)
     end
 

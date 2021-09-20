@@ -1,7 +1,6 @@
-VERSION >= v"0.4.0-dev+6521" && __precompile__()
 module LARS
 
-using ArrayViews, Distributions, Compat
+using LinearAlgebra, Statistics, Distributions, Printf
 
 include("lar.jl")
 include("covtest.jl")

@@ -1,8 +1,7 @@
-using LARS
-using Base.Test  
+using LARS, Test, DelimitedFiles, Statistics, LinearAlgebra
 
 # Diabetes data set from Efron, Hastie, Johnstone, and Tibshirani (2004)
-diabeetus = readcsv(joinpath(dirname(@__FILE__), "diabeetus.csv"), header=true)[1]
+diabeetus = readdlm(joinpath(dirname(@__FILE__), "diabeetus.csv"), ',', header=true)[1]
 y = diabeetus[:, 2]
 X = diabeetus[:, 3:end]
 
@@ -22,22 +21,22 @@ coefs = [
 ]
 
 c = lars(X, y)
-@test_approx_eq c.lambdas lambdas
-@test_approx_eq c.coefs coefs
+@test c.lambdas ≈ lambdas
+@test c.coefs ≈ coefs
 
 # Covariance test results will differ slightly with estimated variance,
-# but should match R covTest without estimate 
+# but should match R covTest without estimate
 drop_in_cov = [57079.3544,148636.4184,16309.9614,17602.5131,14269.1173,457.8277,9624.1289,1786.1439,407.7183,47.0376]
 t = covtest(c, X, y, errorvar=1.0)
-@test_approx_eq_eps t.drop_in_cov[1:end-1] drop_in_cov 1e-4
+@test t.drop_in_cov[1:end-1] ≈ drop_in_cov atol=1e-4
 
 # With penalty
 c1 = lars(X, y, lambda2=0.02)
-c2 = lars([X .- mean(X, 1); sqrt(0.02)*eye(size(X, 2))], [y .- mean(y); zeros(size(X, 2))], standardize=false, intercept=false)
-@test_approx_eq c1.coefs' c2.coefs'
+c2 = lars([X .- mean(X, dims=1); sqrt(0.02)*Matrix(I,size(X, 2),size(X, 2))], [y .- mean(y); zeros(size(X, 2))], standardize=false, intercept=false)
+@test c1.coefs' ≈ c2.coefs'
 c1 = lars(X, y, lambda2=0.02, use_gram=false)
-c2 = lars([X .- mean(X, 1); sqrt(0.02)*eye(size(X, 2))], [y .- mean(y); zeros(size(X, 2))], standardize=false, intercept=false, use_gram=false)
-@test_approx_eq c1.coefs' c2.coefs'
+c2 = lars([X .- mean(X, dims=1); sqrt(0.02)*Matrix(I,size(X, 2),size(X, 2))], [y .- mean(y); zeros(size(X, 2))], standardize=false, intercept=false, use_gram=false)
+@test c1.coefs' ≈ c2.coefs'
 
 lambdas = [949.4352603840745,889.315990734972,452.9009689082005,316.0740526984122,130.13085130152092,88.78242981548489,68.9652212024215,19.981254678104257,5.477472946045879,5.089178805603155,0.0]
 coefs = [
@@ -54,11 +53,11 @@ coefs = [
 ]
 
 c = lars(X, y, method=:lar)
-@test_approx_eq c.lambdas lambdas
-@test_approx_eq c.coefs coefs
+@test c.lambdas ≈ lambdas
+@test c.coefs ≈ coefs
 
 # Randomly generated data with predictor drops
-testdata = readcsv(joinpath(dirname(@__FILE__), "testdata.csv"))
+testdata = readdlm(joinpath(dirname(@__FILE__), "testdata.csv"), ',')
 y = testdata[:, 1]
 X = testdata[:, 2:end]
 
@@ -73,8 +72,8 @@ coefs = [
 ]
 
 c = lars(X, y, standardize=false, intercept=false)
-@test_approx_eq c.lambdas lambdas
-@test_approx_eq c.coefs coefs
+@test c.lambdas ≈ lambdas
+@test c.coefs ≈ coefs
 
 # Standardized from R lars
 lambdas = [30.4807287086601,27.6335762471999,24.5043850474775,12.0241681293273,6.37199303756002,0.94518638046917,0.260226891648141,0.224461196798777,0.075770527267496,0.0]
@@ -87,8 +86,8 @@ coefs = [
 ]
 
 c = lars(X, y)
-@test_approx_eq c.lambdas lambdas
-@test_approx_eq c.coefs coefs
+@test c.lambdas ≈ lambdas
+@test c.coefs ≈ coefs
 
 # Unstandardized from scikit-learn
 lambdas = [766.1750193137241,542.1829897748706,523.136666260976,374.9244286861718,33.3577875386257,58.72119349256296,325.92271025568454,0.0]
@@ -101,5 +100,5 @@ coefs = [
 ]
 
 c = lars(X, y, method=:lar, standardize=false, intercept=false)
-@test_approx_eq c.lambdas lambdas
-@test_approx_eq c.coefs coefs
+@test c.lambdas ≈ lambdas
+@test c.coefs ≈ coefs
