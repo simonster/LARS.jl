@@ -18,7 +18,7 @@ function Base.show(io::IO, path::CovarianceTestPath{T}) where {T}
             (path.estimated_errorvar ? "(estimated)" : "(given)"))
 
     spacing = repeat(" ", 2)
-    predictorlen = max(iceil(log10(maximum(path.predictor))), 9)
+    predictorlen = max(ceil(Int, log10(maximum(path.predictor))), 9)
     covlen = maximum([length(repr(x)) for x in path.drop_in_cov])
     print(io, ' ', rpad("Predictor", predictorlen), spacing,
           rpad("Drop in Covariance", covlen), spacing, rpad("p-value", 8))
@@ -108,10 +108,10 @@ function covtest(path::LARSPath, X::Matrix{T}, y::Vector{T}; errorvar::Float64=N
         errorvar /= df
 
         drop_in_cov .*= 1/errorvar
-        p = ccdf(FDist(2, df), drop_in_cov)
+        p = ccdf.(FDist(2, df), drop_in_cov)
     else
         drop_in_cov .*= 1/errorvar
-        p = ccdf(Exponential(1), drop_in_cov)
+        p = ccdf.(Exponential(1), drop_in_cov)
     end
 
     CovarianceTestPath(predictor, drop_in_cov, p, errorvar, estimate_errorvar)

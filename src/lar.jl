@@ -92,7 +92,7 @@ function Base.show(io::IO, path::LARSPath{T}) where {T}
     !isempty(path.steps) || return
 
     spacing = repeat(" ", 2)
-    steplen = max(iceil(log10(length(path.steps))), 4)
+    steplen = max(ceil(Int, log10(length(path.steps))), 4)
     lambdalen = maximum([length(repr(lambda)) for lambda in path.lambdas])
     print(io, ' ', rpad("Step", steplen), spacing, rpad("λ", lambdalen), spacing, "Action")
 
