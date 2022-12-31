@@ -1,5 +1,5 @@
 # Least angle regression
-# 
+#
 # Copyright 2014 Simon Kornblith <simon@simonster.com> and others
 #
 # The LARS implementation here is heavily derived from scikit-learn.
@@ -45,18 +45,18 @@
 # regression. The Annals of Statistics, 32(2), 407–499.
 # doi:10.1214/009053604000000067
 
-import Base.LinAlg.Ac_ldiv_B!, Base.LinAlg.BlasReal
+using LinearAlgebra: BlasReal
 export lars
 
-immutable LARSStep
+struct LARSStep
     added::Int
-    dropped::@compat Tuple{Vararg{Int}}
+    dropped::Tuple{Vararg{Int}}
 
     LARSStep(x::Int) = new(x)
-    LARSStep(x::@compat Tuple{Vararg{Int}}) = new(0, x)
+    LARSStep(x::Tuple{Vararg{Int}}) = new(0, x)
 end
 
-immutable LARSPath{T}
+struct LARSPath{T}
     # :lasso or :lar
     method::Symbol
 
@@ -81,18 +81,18 @@ immutable LARSPath{T}
     # Intercept values at each knot
     intercept::Vector{T}
 
-    LARSPath(method, standardized, lambda2, steps, lambda, coefs) =
+    LARSPath{T}(method, standardized, lambda2, steps, lambda, coefs) where {T} =
         new(method, standardized, lambda2, steps, lambda, coefs)
-    LARSPath(method, standardized, lambda2, steps, lambda, coefs, intercept) =
+    LARSPath{T}(method, standardized, lambda2, steps, lambda, coefs, intercept) where {T} =
         new(method, standardized, lambda2, steps, lambda, coefs, intercept)
 end
 
-function Base.show{T}(io::IO, path::LARSPath{T})
+function Base.show(io::IO, path::LARSPath{T}) where {T}
     println(io, "LARSPath{$T} with $(size(path.coefs, 1)) coefficients:")
     !isempty(path.steps) || return
 
     spacing = repeat(" ", 2)
-    steplen = max(iceil(log10(length(path.steps))), 4)
+    steplen = max(ceil(Int, log10(length(path.steps))), 4)
     lambdalen = maximum([length(repr(lambda)) for lambda in path.lambdas])
     print(io, ' ', rpad("Step", steplen), spacing, rpad("λ", lambdalen), spacing, "Action")
 
@@ -124,37 +124,37 @@ function swaprows!(X::DenseMatrix, c1::Int, c2::Int)
     X
 end
 
-@eval function choldelete!{T}(R::StridedView{T}, row::Int)
+function choldelete!(R::AbstractMatrix{T}, row::Int) where {T}
     inc = stride(R, 2)*sizeof(T)
     p = (row-1)*inc
-    for i = row:size(R, 2)-1
+    GC.@preserve R for i = row:size(R, 2)-1
         BLAS.blascopy!(i+1, pointer(R)+p+inc, 1, pointer(R)+p, 1)
         p += inc
     end
     for i = row:size(R, 2)-1
-        A_mul_B!($(VERSION >= v"0.4.0-dev+2272" ? :(givens(R, i, i+1, i)[1]) : :(givens(R, i, i+1, i))), R)
+        lmul!(givens(R, i, i+1, i)[1], R)
     end
     return R
 end
 
-function standardize!{T}(X::AbstractMatrix{T})
+function standardize!(X::AbstractMatrix{T}) where {T}
     Xnorm = [begin
         v = view(X, :, i)
         x = 1/sqrt(dot(v, v))
         ifelse(isfinite(x), x, one(T))
     end for i = 1:size(X, 2)]
-    scale!(X, Xnorm)
+    X .*= transpose(Xnorm)
     Xnorm
 end
 
-function lars{T<:BlasReal}(X::Matrix{T}, y::Vector{T}; method::Symbol=:lasso,
-                           intercept::Bool=true, standardize::Bool=true,
-                           lambda2::Float64=0.0, maxiter::Int=typemax(Int),
-                           lambda_min::Float64=0.0, use_gram::Bool=(size(X, 1) > size(X, 2)),
-                           verbose::Bool=false)
+function lars(X::Matrix{T}, y::Vector{T}; method::Symbol=:lasso,
+            intercept::Bool=true, standardize::Bool=true,
+            lambda2::Float64=0.0, maxiter::Int=typemax(Int),
+            lambda_min::Float64=0.0, use_gram::Bool=(size(X, 1) > size(X, 2)),
+            verbose::Bool=false) where {T<:BlasReal}
     # Center and standardize
     if intercept
-        μX = mean(X, 1)
+        μX = mean(X, dims=1)
         X = X .- μX
         μy = mean(y)
         y = y .- μy
@@ -201,7 +201,7 @@ function lars{T<:BlasReal}(X::Matrix{T}, y::Vector{T}; method::Symbol=:lasso,
 
     Gram = use_gram ? X'X : similar(X, 0, 0)
     Cov = X'y
-    scale!(Cov, x2)
+    Cov .*= x2
 
     while true
         if isempty(Cov)
@@ -254,14 +254,14 @@ function lars{T<:BlasReal}(X::Matrix{T}, y::Vector{T}; method::Symbol=:lasso,
 
             removed_Cov = Cov[C_idx]
             Cov[C_idx] = Cov[1]
-            shift!(Cov)
+            popfirst!(Cov)
             indices[n], indices[m] = indices[m], indices[n]
 
             if !use_gram
                 swapcols!(X, m, n)
                 newcolX = view(X, :, nactive+1)
                 R[nactive+1, nactive+1] = dot(newcolX, newcolX)
-                Ac_mul_B!(view(R, 1:nactive, nactive+1:nactive+1), view(X, :, 1:nactive), view(X, :, nactive+1:nactive+1))
+                mul!(view(R, 1:nactive, nactive+1:nactive+1), view(X, :, 1:nactive)', view(X, :, nactive+1:nactive+1))
             else
                 swaprows!(Gram, m, n)
                 swapcols!(Gram, m, n)
@@ -342,21 +342,21 @@ function lars{T<:BlasReal}(X::Matrix{T}, y::Vector{T}; method::Symbol=:lasso,
                 end
             end
 
-            scale!(least_squares, AA * x2)
+            least_squares .*= AA * x2
         end
 
         corr_eq_dir = view(corr_eq_dir_buffer, 1:size(X, 2)-nactive)
         if !use_gram
             # equiangular direction of variables in the active set
-            A_mul_B!(eq_dir, view(X, :, 1:nactive), least_squares)
+            mul!(eq_dir, view(X, :, 1:nactive), least_squares)
             # correlation between each inactive variables and
             # eqiangular vector
-            Ac_mul_B!(corr_eq_dir, view(X, :, nactive+1:size(X, 2)), eq_dir)
+            mul!(corr_eq_dir, view(X, :, nactive+1:size(X, 2))', eq_dir)
         else
             # scikit-learn suggests using QR for this, but doesn't
-            Ac_mul_B!(corr_eq_dir, view(Gram, 1:nactive, nactive+1:size(Gram, 2)), least_squares)
+            mul!(corr_eq_dir, view(Gram, 1:nactive, nactive+1:size(Gram, 2))', least_squares)
         end
-        scale!(corr_eq_dir, x2)
+        corr_eq_dir .*= x2
 
         gamma_ = C / AA
         for i = 1:length(Cov)
@@ -399,7 +399,7 @@ function lars{T<:BlasReal}(X::Matrix{T}, y::Vector{T}; method::Symbol=:lasso,
             coefs_new[:, 1:size(coefs, 2)] = coefs
             coefs = coefs_new
             resize!(lambdas, niter+addsteps)
-            lambdas[niter:end] = 0
+            lambdas[niter:end] .= 0
         end
         copy!(prev_coef, coef)
         fill!(coef, zero(eltype(coef)))
@@ -444,9 +444,9 @@ function lars{T<:BlasReal}(X::Matrix{T}, y::Vector{T}; method::Symbol=:lasso,
                     for i = 1:nactive
                         active_coef[i] = coef[active[i]]
                     end
-                    residual = A_mul_B!(eq_dir, view(X, :, 1:nactive), active_coef)
-                    broadcast!(-, residual, y, residual)
-                    prepend!(Cov, scale!(view(X, :, nactive+(1:length(idx)))'residual, x2))
+                    residual = mul!(eq_dir, view(X, :, 1:nactive), active_coef)
+                    @. residual = (y - residual) * x2
+                    prepend!(Cov, view(X, :, nactive .+ (1:length(idx)))'residual)
                 else
                     for ii in idx
                         for i in ii:nactive
@@ -476,7 +476,7 @@ function lars{T<:BlasReal}(X::Matrix{T}, y::Vector{T}; method::Symbol=:lasso,
     coefs = coefs[:, 1:niter]
     lambdas = lambdas[1:niter]
     if standardize
-        scale!(Xnorm, coefs)
+        coefs .= Xnorm .* coefs
     end
     if intercept
         LARSPath{T}(method, standardize, lambda2, steps, lambdas, coefs, μy .- vec(μX * coefs))
