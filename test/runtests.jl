@@ -1,4 +1,5 @@
 using LARS, Test, DelimitedFiles, Statistics, LinearAlgebra
+using StableRNGs
 
 # Diabetes data set from Efron, Hastie, Johnstone, and Tibshirani (2004)
 diabeetus = readdlm(joinpath(dirname(@__FILE__), "diabeetus.csv"), ',', header=true)[1]
@@ -102,3 +103,15 @@ coefs = [
 c = lars(X, y, method=:lar, standardize=false, intercept=false)
 @test c.lambdas ≈ lambdas
 @test c.coefs ≈ coefs
+
+@testset "degenerate regressors produces warning" begin
+
+    rng = StableRNG(123)
+    n = 100
+    p = 5
+    X = randn(rng, n, p)
+    X[:, 2] = X[:, 1] + 1e-10*randn(n)
+    y = X[:, 1] + randn(n)
+    @test_logs (:warn, r"^Regressors in active set degenerate.") lars(X, y, method=:lars)
+
+end
