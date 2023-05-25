@@ -289,9 +289,9 @@ function lars(X::Matrix{T}, y::Vector{T}; method::Symbol=:lasso,
                 # The system is becoming too ill-conditioned.
                 # We have degenerate vectors in our active set.
                 # We'll 'drop for good' the last regressor added
-                warn(@sprintf "Regressors in active set degenerate. Dropping a regressor, after %i iterations, i.e. λ=%.3e, with an active set of %i regressors, and the smallest cholesky pivot element being %.3e" niter lambda nactive diag)
+                @warn(@sprintf "Regressors in active set degenerate. Dropping a regressor, after %i iterations, i.e. λ=%.3e, with an active set of %i regressors, and the smallest cholesky pivot element being %.3e" niter lambda nactive diag)
                 # XXX: need to figure a 'drop for good' way
-                unshift!(Cov, removed_Cov)
+                pushfirst!(Cov, removed_Cov)
                 Cov[1] = Cov[C_idx]
                 Cov[C_idx] = 0
                 continue
@@ -312,7 +312,7 @@ function lars(X::Matrix{T}, y::Vector{T}; method::Symbol=:lasso,
             # bringing in too much numerical error that is greater than
             # than the remaining correlation with the
             # regressors. Time to bail out
-            warn(@sprintf "Early stopping the lars path, as the residues are small and the current value of lambda is no longer well controlled. %i iterations, λ=%.3e, previous λ=%.3e, with an active set of %i regressors." niter lambda prev_lambda nactive)
+            @warn(@sprintf "Early stopping the lars path, as the residues are small and the current value of lambda is no longer well controlled. %i iterations, λ=%.3e, previous λ=%.3e, with an active set of %i regressors." niter lambda prev_lambda nactive)
             break
         end
 
